@@ -8,21 +8,27 @@ const credentials = JSON.parse(fileData);
 
 (async () => {
     // TODO: Launch a browser instance and open a new page
-    // We set headless: false so you can see the browser working!
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({ 
+        headless: false, 
+        defaultViewport: null,
+        args: ['--start-maximized'] 
+    });
     const page = await browser.newPage();
+
+    // Custom helper to fix the version error
+    const wait = (ms) => new Promise(res => setTimeout(res, ms));
 
     // Navigate to GitHub login page
     await page.goto('https://github.com/login');
 
     // TODO: Login to GitHub using the provided credentials
     // HINT: Use the 'type' method to input username and password, then click on the submit button
-    await page.type('#login_field', credentials.username); // Type username
-    await page.type('#password', credentials.password);    // Type password
-    await page.click('input[name="commit"]');             // Click Sign In
+    await page.waitForSelector('#login_field');
+    await page.type('#login_field', credentials.username);
+    await page.type('#password', credentials.password);
+    await page.click('input[name="commit"]');
 
     // Wait for successful login
-    // We wait for the user avatar at the top right to know we are in
     await page.waitForSelector('.avatar.circle');
 
     // Extract the actual GitHub username to be used later
@@ -30,24 +36,25 @@ const credentials = JSON.parse(fileData);
 
     const repositories = ["cheeriojs/cheerio", "axios/axios", "puppeteer/puppeteer"];
 
-for (const repo of repositories) {
+    for (const repo of repositories) {
         await page.goto(`https://github.com/${repo}`);
 
         // TODO: Star the repository
-        await page.waitForSelector('.js-social-form .js-toggler-target'); 
-        await page.click('.js-social-form .js-toggler-target');
+        // HINT: Use selectors to identify and click on the star button
+        const starButton = 'button[aria-label^="Star this repository"]';
+        await page.waitForSelector(starButton);
+        await page.click(starButton);
         
-        // This is the new way to wait for 2 seconds
-        await new Promise(r => setTimeout(r, 2000)); 
+        await wait(2000); // This timeout helps ensure that the action is fully processed
     }
 
     // TODO: Navigate to the user's starred repositories page
     await page.goto(`https://github.com/${actualUsername}?tab=stars`);
 
     // TODO: Click on the "Create list" button
-    // This button opens the "Create a new list" popup
-    await page.waitForSelector('button[data-show-dialog-id="lists-create-dialog"]');
-    await page.click('button[data-show-dialog-id="lists-create-dialog"]');
+    const createListBtn = 'button[data-show-dialog-id="lists-create-dialog"]';
+    await page.waitForSelector(createListBtn);
+    await page.click(createListBtn);
 
     // TODO: Create a list named "Node Libraries"
     // HINT: Wait for the input field and type the list name
@@ -55,7 +62,7 @@ for (const repo of repositories) {
     await page.type('input[name="list[name]"]', 'Node Libraries');
 
     // Wait for buttons to become visible
-    await page.waitForTimeout(1000);
+    await wait(1000);
 
     // Identify and click the "Create" button
     const buttons = await page.$$('.Button--primary.Button--medium.Button');
@@ -68,7 +75,7 @@ for (const repo of repositories) {
     }
 
     // Allow some time for the list creation process
-    await page.waitForTimeout(2000);
+    await wait(2000);
 
     for (const repo of repositories) {
         await page.goto(`https://github.com/${repo}`);
@@ -77,9 +84,9 @@ for (const repo of repositories) {
         // HINT: Open the dropdown, wait for it to load, and find the list by its name
         const dropdownSelector = 'summary[aria-label="Add to list"]';
         await page.waitForSelector(dropdownSelector);
-        await page.click(dropdownSelector); // 1. Click the little arrow next to "Starred"
+        await page.click(dropdownSelector);
         
-        await page.waitForSelector('.js-user-list-menu-form'); // 2. Wait for the list menu to open
+        await page.waitForSelector('.js-user-list-menu-form');
         
         const lists = await page.$$('.js-user-list-menu-form');
 
@@ -87,13 +94,13 @@ for (const repo of repositories) {
           const textHandle = await list.getProperty('innerText');
           const text = await textHandle.jsonValue();
           if (text.includes('Node Libraries')) {
-            await list.click(); // 3. Click the checkbox for our new list
+            await list.click();
             break;
           }
         }
 
         // Allow some time for the action to process
-        await page.waitForTimeout(1000);
+        await wait(1000);
 
         // Close the dropdown to finalize the addition to the list
         await page.click(dropdownSelector);
@@ -101,5 +108,4 @@ for (const repo of repositories) {
 
     // Close the browser
     await browser.close();
-    console.log("All done! Check your GitHub stars!");
 })();
